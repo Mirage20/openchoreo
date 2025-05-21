@@ -136,10 +136,10 @@ type SecurityPolicy struct {
 }
 
 // MediationPolicy defines request and response transformation policies
-//type MediationPolicy struct {
-//	RequestTransformations  []TransformationRule `json:"requestTransformations,omitempty"`
-//	ResponseTransformations []TransformationRule `json:"responseTransformations,omitempty"`
-//}
+type MediationPolicy struct {
+	RequestTransformations  []TransformationRule `json:"requestTransformations,omitempty"`
+	ResponseTransformations []TransformationRule `json:"responseTransformations,omitempty"`
+}
 
 // TransformationRule defines a single transformation rule
 type TransformationRule struct {

@@ -57,7 +57,6 @@ spec:
                       the upstream service
                     properties:
                       port:
-                        format: int32
                         type: integer
                     required:
                     - port
@@ -95,6 +94,9 @@ spec:
                           description: Policy defines an API management policy for
                             an endpoint
                           properties:
+                            enabled:
+                              description: enabled if not specified
+                              type: boolean
                             name:
                               type: string
                             policySpec:
@@ -175,6 +177,61 @@ spec:
                                   type: object
                                 mediationPolicies:
                                   items:
+                                    description: MediationPolicy defines request and
+                                      response transformation policies
+                                    properties:
+                                      requestTransformations:
+                                        items:
+                                          description: TransformationRule defines
+                                            a single transformation rule
+                                          properties:
+                                            action:
+                                              type: string
+                                            fields:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
+                                            headerName:
+                                              type: string
+                                            headerValue:
+                                              type: string
+                                            headers:
+                                              items:
+                                                type: string
+                                              type: array
+                                            type:
+                                              type: string
+                                          required:
+                                          - action
+                                          - type
+                                          type: object
+                                        type: array
+                                      responseTransformations:
+                                        items:
+                                          description: TransformationRule defines
+                                            a single transformation rule
+                                          properties:
+                                            action:
+                                              type: string
+                                            fields:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
+                                            headerName:
+                                              type: string
+                                            headerValue:
+                                              type: string
+                                            headers:
+                                              items:
+                                                type: string
+                                              type: array
+                                            type:
+                                              type: string
+                                          required:
+                                          - action
+                                          - type
+                                          type: object
+                                        type: array
                                     type: object
                                   type: array
                                 oauth2:
@@ -286,22 +343,6 @@ spec:
                                                   items:
                                                     properties:
                                                       method:
-                                                        description: |-
-                                                          HTTPMethod describes how to select a HTTP route by matching the HTTP
-                                                          method as defined by
-                                                          [RFC 7231](https://datatracker.ietf.org/doc/html/rfc7231#section-4) and
-                                                          [RFC 5789](https://datatracker.ietf.org/doc/html/rfc5789#section-2).
-                                                          The value is expected in upper case.
-                                                        enum:
-                                                        - GET
-                                                        - HEAD
-                                                        - POST
-                                                        - PUT
-                                                        - DELETE
-                                                        - CONNECT
-                                                        - OPTIONS
-                                                        - TRACE
-                                                        - PATCH
                                                         type: string
                                                       scopes:
                                                         items:
@@ -383,8 +424,6 @@ spec:
                                   type: object
                               type: object
                             type:
-                              description: PolicyType defines the type of API management
-                                policy
                               type: string
                           required:
                           - name
@@ -405,6 +444,9 @@ spec:
                           description: Policy defines an API management policy for
                             an endpoint
                           properties:
+                            enabled:
+                              description: enabled if not specified
+                              type: boolean
                             name:
                               type: string
                             policySpec:
@@ -485,6 +527,61 @@ spec:
                                   type: object
                                 mediationPolicies:
                                   items:
+                                    description: MediationPolicy defines request and
+                                      response transformation policies
+                                    properties:
+                                      requestTransformations:
+                                        items:
+                                          description: TransformationRule defines
+                                            a single transformation rule
+                                          properties:
+                                            action:
+                                              type: string
+                                            fields:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
+                                            headerName:
+                                              type: string
+                                            headerValue:
+                                              type: string
+                                            headers:
+                                              items:
+                                                type: string
+                                              type: array
+                                            type:
+                                              type: string
+                                          required:
+                                          - action
+                                          - type
+                                          type: object
+                                        type: array
+                                      responseTransformations:
+                                        items:
+                                          description: TransformationRule defines
+                                            a single transformation rule
+                                          properties:
+                                            action:
+                                              type: string
+                                            fields:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
+                                            headerName:
+                                              type: string
+                                            headerValue:
+                                              type: string
+                                            headers:
+                                              items:
+                                                type: string
+                                              type: array
+                                            type:
+                                              type: string
+                                          required:
+                                          - action
+                                          - type
+                                          type: object
+                                        type: array
                                     type: object
                                   type: array
                                 oauth2:
@@ -596,22 +693,6 @@ spec:
                                                   items:
                                                     properties:
                                                       method:
-                                                        description: |-
-                                                          HTTPMethod describes how to select a HTTP route by matching the HTTP
-                                                          method as defined by
-                                                          [RFC 7231](https://datatracker.ietf.org/doc/html/rfc7231#section-4) and
-                                                          [RFC 5789](https://datatracker.ietf.org/doc/html/rfc5789#section-2).
-                                                          The value is expected in upper case.
-                                                        enum:
-                                                        - GET
-                                                        - HEAD
-                                                        - POST
-                                                        - PUT
-                                                        - DELETE
-                                                        - CONNECT
-                                                        - OPTIONS
-                                                        - TRACE
-                                                        - PATCH
                                                         type: string
                                                       scopes:
                                                         items:
@@ -693,8 +774,6 @@ spec:
                                   type: object
                               type: object
                             type:
-                              description: PolicyType defines the type of API management
-                                policy
                               type: string
                           required:
                           - name

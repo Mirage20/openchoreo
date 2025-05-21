@@ -7,9 +7,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ==============================================================================
+//==============================================================================
 // Constants and Finalizers
-// ==============================================================================
+//==============================================================================
 
 const (
 	// EndpointDeletionFinalizer should be added as a finalizer to the
@@ -18,9 +18,9 @@ const (
 	EndpointDeletionFinalizer = "core.choreo.dev/endpoint-deletion"
 )
 
-// ==============================================================================
+//==============================================================================
 // Backend Reference Types
-// ==============================================================================
+//==============================================================================
 
 type BackendRefType string
 
@@ -46,7 +46,7 @@ type BackendRef struct {
 
 // ComponentRef defines the component reference for the upstream service
 type ComponentRef struct {
-	Port int32 `json:"port"`
+	Port int `json:"port"`
 }
 
 // Target defines the target service URL for the upstream service. This is used for proxies
@@ -55,9 +55,9 @@ type Target struct {
 	URL string `json:"url"`
 }
 
-// ==============================================================================
+//==============================================================================
 // API Settings Configuration
-// ==============================================================================
+//==============================================================================
 
 // EndpointAPISettingsSpec defines configuration parameters for managed endpoints
 type EndpointAPISettingsSpec struct {
@@ -98,9 +98,9 @@ type RateLimitConfig struct {
 	Tier string `json:"tier"`
 }
 
-// ==============================================================================
+//==============================================================================
 // Endpoint Types and Core Structures
-// ==============================================================================
+//==============================================================================
 
 // EndpointType defines the different API technologies supported by the endpoint
 type EndpointType string
@@ -134,9 +134,9 @@ type EndpointSpec struct {
 	NetworkVisibilities *NetworkVisibility `json:"networkVisibilities,omitempty"`
 }
 
-// ==============================================================================
+//==============================================================================
 // Network Visibility Configuration
-// ==============================================================================
+//==============================================================================
 
 // NetworkVisibility defines the exposure configuration for different network levels of an Endpoint.
 // It allows specifying visibility and security settings separately for organizational and public access.
@@ -158,29 +158,19 @@ type VisibilityConfig struct {
 	Policies []Policy `json:"policies,omitempty"`
 }
 
-// ==============================================================================
+//==============================================================================
 // API-M Policy Configuration
-// ==============================================================================
-
-// PolicyType defines the type of API management policy
-type PolicyType string
-
-const (
-	Oauth2PolicyType     PolicyType = "oauth2"
-	APIKeyAuthPolicyType PolicyType = "api-key"
-	BasicAuthPolicyType  PolicyType = "basic-auth"
-	RateLimitPolicyType  PolicyType = "rate-limit"
-	CORSPolicyType       PolicyType = "cors"
-	MediationPolicyType  PolicyType = "mediation"
-	// ToDo: Add more policy types as needed
-)
+//==============================================================================
 
 // Policy defines an API management policy for an endpoint
 type Policy struct {
 	// +required
 	Name string `json:"name"`
 	// +required
-	Type PolicyType `json:"type"`
+	Type string `json:"type"`
+	// +optional
+	// enabled if not specified
+	Enabled *bool `json:"enabled,omitempty"`
 	// +required
 	*PolicySpec `json:"policySpec"`
 }
@@ -202,9 +192,9 @@ type PolicySpec struct {
 	// ToDo: Add more policy types as needed
 }
 
-// ==============================================================================
+//==============================================================================
 // API-Key auth Policy Configuration
-// ==============================================================================
+//==============================================================================
 
 type APIKeyAuthPolicySpec struct {
 	KeySource  KeySourceDefinition `json:"keySource" yaml:"keySource"`
@@ -216,9 +206,9 @@ type KeySourceDefinition struct {
 	HeaderAuthScheme string `json:"headerAuthScheme,omitempty" yaml:"headerAuthScheme,omitempty"`
 }
 
-// ==============================================================================
+//==============================================================================
 // Basic auth Policy Configuration
-// ==============================================================================
+//==============================================================================
 
 type BasicAuthPolicySpec struct {
 	Users            []BasicAuthUser `json:"users" yaml:"users"`
@@ -231,9 +221,9 @@ type BasicAuthUser struct {
 	PasswordFromSecret string `json:"passwordFromSecret" yaml:"passwordFromSecret"`
 }
 
-// ==============================================================================
+//==============================================================================
 // OAuth2 Policy Configuration
-// ==============================================================================
+//==============================================================================
 
 // OAuth2PolicySpec defines the configuration for OAuth2 policies
 type OAuth2PolicySpec struct {
@@ -248,18 +238,10 @@ type JWT struct {
 	Authorization AuthzSpec `json:"authorization" yaml:"authorization"`
 }
 
-type APIType string
-
-const (
-	APITypeREST    APIType = "REST"
-	APITypeGRPC    APIType = "GRPC"
-	APITypeGraphQL APIType = "GraphQL"
-)
-
 type AuthzSpec struct {
 	// +required
 	// +kubebuilder:validation:Enum=REST;GRPC;GraphQL
-	APIType APIType `json:"apiType" yaml:"apiType"` // REST, GRPC, GraphQL
+	APIType string `json:"apiType" yaml:"apiType"` // REST, GRPC, GraphQL
 	// +optional
 	Rest *REST `json:"rest" yaml:"rest"`
 	// +optional
@@ -280,9 +262,9 @@ type ClaimToHeader struct {
 	Header string `json:"header" yaml:"header"`
 }
 
-// ==============================================================================
+//==============================================================================
 // API Type-Specific Operations
-// ==============================================================================
+//==============================================================================
 
 type REST struct {
 	ClaimsToHeaders *[]ClaimToHeader `json:"claimsToHeaders" yaml:"claimsToHeaders"`
@@ -300,31 +282,10 @@ type GraphQL struct {
 }
 
 type RESTOperation struct {
-	Target string     `json:"target" yaml:"target"`
-	Method HTTPMethod `json:"method" yaml:"method"`
-	Scopes []string   `json:"scopes" yaml:"scopes"`
+	Target string   `json:"target" yaml:"target"`
+	Method string   `json:"method" yaml:"method"`
+	Scopes []string `json:"scopes" yaml:"scopes"`
 }
-
-// HTTPMethod describes how to select a HTTP route by matching the HTTP
-// method as defined by
-// [RFC 7231](https://datatracker.ietf.org/doc/html/rfc7231#section-4) and
-// [RFC 5789](https://datatracker.ietf.org/doc/html/rfc5789#section-2).
-// The value is expected in upper case.
-//
-// +kubebuilder:validation:Enum=GET;HEAD;POST;PUT;DELETE;CONNECT;OPTIONS;TRACE;PATCH
-type HTTPMethod string
-
-const (
-	HTTPMethodGet     HTTPMethod = "GET"
-	HTTPMethodHead    HTTPMethod = "HEAD"
-	HTTPMethodPost    HTTPMethod = "POST"
-	HTTPMethodPut     HTTPMethod = "PUT"
-	HTTPMethodDelete  HTTPMethod = "DELETE"
-	HTTPMethodConnect HTTPMethod = "CONNECT"
-	HTTPMethodOptions HTTPMethod = "OPTIONS"
-	HTTPMethodTrace   HTTPMethod = "TRACE"
-	HTTPMethodPatch   HTTPMethod = "PATCH"
-)
 
 type GRPCOperation struct {
 	Name    string              `json:"name" yaml:"name"`
@@ -342,9 +303,9 @@ type GraphQLOperation struct {
 	Scopes []string `json:"scopes" yaml:"scopes"`
 }
 
-// ==============================================================================
+//==============================================================================
 // CORS Policies
-// ==============================================================================
+//==============================================================================
 
 type CORSPolicySpec struct {
 	AllowOrigins     []string `json:"allowOrigins" yaml:"allowOrigins"`
@@ -355,9 +316,9 @@ type CORSPolicySpec struct {
 	AllowCredentials bool     `json:"allowCredentials" yaml:"allowCredentials"`
 }
 
-// ==============================================================================
+//==============================================================================
 // Rate Limiting Policies
-// ==============================================================================
+//==============================================================================
 
 type RateLimitPolicySpec struct {
 	APILevel       APILevelRLSpec       `json:"apiLevel" yaml:"apiLevel"`
@@ -380,17 +341,17 @@ type RestRLOperation struct {
 	RequestLimit int    `json:"requestLimit" yaml:"requestLimit"`
 }
 
-// ==============================================================================
+//==============================================================================
 // Mediation Policies Configuration
-// ==============================================================================
+//==============================================================================
 
-type MediationPolicy struct {
-	// ToDO: Finalize the mediation policy spec
-}
+//type MediationPolicy struct {
+//	// ToDO: Finalize the mediation policy spec
+//}
 
-// ==============================================================================
+//==============================================================================
 // Endpoint Status
-// ==============================================================================
+//==============================================================================
 
 // EndpointStatus defines the observed state of Endpoint
 type EndpointStatus struct {
@@ -398,9 +359,9 @@ type EndpointStatus struct {
 	Address    string             `json:"address,omitempty"`
 }
 
-// ==============================================================================
+//==============================================================================
 // Endpoint and EndpointList Resources
-// ==============================================================================
+//==============================================================================
 
 // Endpoint is the Schema for the endpoints API
 // +kubebuilder:object:root=true
