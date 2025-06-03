@@ -201,7 +201,7 @@ type PolicySpec struct {
 	// +optional
 	CORS *CORSPolicySpec `json:"cors,omitempty"`
 	// +optional
-	MediationPolicies *[]MediationPolicy `json:"mediationPolicies,omitempty"`
+	//MediationPolicies *[]MediationPolicy `json:"mediationPolicies,omitempty"`
 	// ToDo: Add more policy types as needed
 }
 
