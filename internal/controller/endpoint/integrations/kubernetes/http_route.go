@@ -47,17 +47,18 @@ func (h *httpRoutesHandler) IsRequired(epCtx *dataplane.EndpointContext) bool {
 
 func (h *httpRoutesHandler) GetCurrentState(ctx context.Context, epCtx *dataplane.EndpointContext) (interface{}, error) {
 	namespace := makeNamespaceName(epCtx)
-	labels := makeWorkloadLabels(epCtx, h.visibility.GetGatewayType())
-
-	listOption := []client.ListOption{
-		client.InNamespace(namespace),
-		client.MatchingLabels(labels),
-	}
-
-	out := &gwapiv1.HTTPRouteList{}
-	err := h.client.List(ctx, out, listOption...)
-	if err != nil {
-		return nil, fmt.Errorf("error while listing HTTPRoutes: %w", err)
+	httpRoutes := MakeHTTPRoutes(epCtx, h.visibility.GetGatewayType())
+	out := []*gwapiv1.HTTPRoute{}
+	for _, httpRoute := range httpRoutes {
+		name := httpRoute.Name
+		r := &gwapiv1.HTTPRoute{}
+		err := h.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, r)
+		if apierrors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
 	}
 	return out, nil
 }
@@ -212,14 +213,17 @@ func shouldOnlyCreateWildCardHTTPRoute(epCtx *dataplane.EndpointContext,
 
 	// Check if any of the policies have OAuth2 configured
 	for _, policy := range policies {
-		if policy.PolicySpec != nil &&
-			policy.Type == choreov1.Oauth2PolicyType &&
-			policy.PolicySpec.OAuth2 != nil &&
-			policy.PolicySpec.OAuth2.JWT.Authorization.Rest != nil &&
-			policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations != nil &&
-			len(*policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations) > 0 {
-			// OAuth2 is configured, no need for wildcard route
-			return false
+		if policy.PolicySpec != nil && policy.Type == choreov1.Oauth2PolicyType {
+			if !*policy.Enabled {
+				return true
+			}
+			if policy.PolicySpec.OAuth2 != nil &&
+				policy.PolicySpec.OAuth2.JWT.Authorization.Rest != nil &&
+				policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations != nil &&
+				len(*policy.PolicySpec.OAuth2.JWT.Authorization.Rest.Operations) > 0 {
+				// OAuth2 is configured, no need for wildcard route
+				return false
+			}
 		}
 	}
 

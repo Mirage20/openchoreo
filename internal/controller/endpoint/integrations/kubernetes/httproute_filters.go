@@ -44,17 +44,18 @@ func (h httpRouteFiltersHandler) IsRequired(epCtx *dataplane.EndpointContext) bo
 
 func (h httpRouteFiltersHandler) GetCurrentState(ctx context.Context, epCtx *dataplane.EndpointContext) (interface{}, error) {
 	namespace := makeNamespaceName(epCtx)
-	labels := makeWorkloadLabels(epCtx, h.visibility.GetGatewayType())
-
-	listOption := []client.ListOption{
-		client.InNamespace(namespace),
-		client.MatchingLabels(labels),
-	}
-
-	out := &egv1a1.HTTPRouteFilterList{}
-	err := h.client.List(ctx, out, listOption...)
-	if err != nil {
-		return nil, fmt.Errorf("error while listing HTTPRouteFilters: %w", err)
+	httpRouteFilters := MakeHTTPRouteFilters(epCtx, h.visibility.GetGatewayType())
+	out := []*egv1a1.HTTPRouteFilter{}
+	for _, filter := range httpRouteFilters {
+		name := filter.Name
+		f := &egv1a1.HTTPRouteFilter{}
+		err := h.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, f)
+		if apierrors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		out = append(out, f)
 	}
 	return out, nil
 }
