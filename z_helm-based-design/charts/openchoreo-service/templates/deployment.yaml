@@ -1,0 +1,104 @@
+{{- $primary := include "openchoreo-service.primaryContainer" . | fromJson -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openchoreo-service.fullname" . }}
+  namespace: {{ include "openchoreo-service.namespace" . }}
+  labels:
+    {{- include "openchoreo-service.labels" . | nindent 4 }}
+    {{- with .Values.pod.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  {{- with .Values.deployment.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "openchoreo-service.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        # Force pod restart when ConfigMap or Secret changes
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.pod.annotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "openchoreo-service.selectorLabels" . | nindent 8 }}
+        {{- with .Values.pod.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- if .Values.imagePullSecrets.enabled }}
+      imagePullSecrets:
+        {{- include "openchoreo-service.imagePullSecrets" . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.pod.serviceAccountName }}
+      serviceAccountName: {{ . }}
+      {{- end }}
+      {{- with .Values.pod.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.pod.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.pod.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.pod.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: {{ .Values.deployment.restartPolicy }}
+      terminationGracePeriodSeconds: {{ .Values.deployment.terminationGracePeriodSeconds }}
+      dnsPolicy: {{ .Values.pod.dnsPolicy }}
+      containers:
+        - name: {{ $primary.name | default "main" }}
+          image: {{ $primary.spec.image | quote }}
+          imagePullPolicy: {{ .Values.container.imagePullPolicy }}
+          {{- if $primary.spec.command }}
+          command:
+            {{- toYaml $primary.spec.command | nindent 12 }}
+          {{- end }}
+          {{- if $primary.spec.args }}
+          args:
+            {{- toYaml $primary.spec.args | nindent 12 }}
+          {{- end }}
+          {{- if or $primary.spec.env .Values.openchoreo.workload.connections .Values.env }}
+          env:
+            {{- include "openchoreo-service.allEnv" . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.openchoreo.workload.endpoints }}
+          ports:
+            {{- include "openchoreo-service.containerPorts" . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.container.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.container.livenessProbe.enabled }}
+          livenessProbe:
+            {{- omit .Values.container.livenessProbe "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- if .Values.container.readinessProbe.enabled }}
+          readinessProbe:
+            {{- omit .Values.container.readinessProbe "enabled" | toYaml | nindent 12 }}
+          {{- end }}
+          {{- with .Values.container.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if or .Values.volumeMounts .Values.volumes }}
+          volumeMounts:
+            {{- toYaml .Values.volumeMounts | nindent 12 }}
+          {{- end }}
+      {{- if .Values.volumes }}
+      volumes:
+        {{- toYaml .Values.volumes | nindent 8 }}
+      {{- end }}

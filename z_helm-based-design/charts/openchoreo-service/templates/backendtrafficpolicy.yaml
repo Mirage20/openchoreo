@@ -1,0 +1,57 @@
+{{- if and .Values.gateway.enabled .Values.openchoreo.apis -}}
+{{- range $apiName, $apiSpec := .Values.openchoreo.apis -}}
+{{- if and $apiSpec.rest $apiSpec.rest.exposeLevels -}}
+{{- range $exposeLevel := $apiSpec.rest.exposeLevels }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: {{ include "openchoreo-service.fullname" $ }}-{{ $apiName }}-{{ $exposeLevel | lower }}
+  namespace: {{ include "openchoreo-service.namespace" $ }}
+  labels:
+    {{- include "openchoreo-service.labels" $ | nindent 4 }}
+    openchoreo.dev/api-name: {{ $apiName }}
+    openchoreo.dev/expose-level: {{ $exposeLevel }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "openchoreo-service.fullname" $ }}-{{ $apiName }}-{{ $exposeLevel | lower }}
+  {{- if $.Values.gateway.backendTrafficPolicy.rateLimit.enabled }}
+  rateLimit:
+    type: {{ $.Values.gateway.backendTrafficPolicy.rateLimit.type }}
+    {{- if eq $.Values.gateway.backendTrafficPolicy.rateLimit.type "Global" }}
+    global:
+      rules:
+        {{- toYaml $.Values.gateway.backendTrafficPolicy.rateLimit.global.rules | nindent 8 }}
+    {{- end }}
+  {{- end }}
+  {{- if $.Values.gateway.backendTrafficPolicy.circuitBreaker.enabled }}
+  circuitBreaker:
+    maxConnections: {{ $.Values.gateway.backendTrafficPolicy.circuitBreaker.maxConnections }}
+    maxPendingRequests: {{ $.Values.gateway.backendTrafficPolicy.circuitBreaker.maxPendingRequests }}
+    maxRequests: {{ $.Values.gateway.backendTrafficPolicy.circuitBreaker.maxRequests }}
+    maxRetries: {{ $.Values.gateway.backendTrafficPolicy.circuitBreaker.maxRetries }}
+  {{- end }}
+  {{- if $.Values.gateway.backendTrafficPolicy.retry.enabled }}
+  retry:
+    numRetries: {{ $.Values.gateway.backendTrafficPolicy.retry.numRetries }}
+    retryOn:
+      {{- toYaml $.Values.gateway.backendTrafficPolicy.retry.retryOn | nindent 6 }}
+  {{- end }}
+  {{- with $.Values.gateway.backendTrafficPolicy.timeout }}
+  timeout:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $.Values.gateway.backendTrafficPolicy.loadBalancer }}
+  loadBalancer:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if $.Values.gateway.backendTrafficPolicy.healthCheck.enabled }}
+  healthCheck:
+    {{- omit $.Values.gateway.backendTrafficPolicy.healthCheck "enabled" | toYaml | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

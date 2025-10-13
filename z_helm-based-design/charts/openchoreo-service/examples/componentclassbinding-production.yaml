@@ -1,0 +1,83 @@
+# ComponentClassBinding: Production Environment Overrides
+# This provides environment-specific governance for the default-service ComponentClass
+# Only needed when production requires different settings than the ComponentClass defaults
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentClassBinding
+metadata:
+  name: default-service-production
+  namespace: default
+spec:
+  # Which ComponentClass this binding applies to
+  componentClass: default-service
+
+  # Which Environment this binding is for
+  environment: production
+
+  # Environment-specific overrides that take precedence over ComponentClass.values
+  # and developer parameters
+  overrides:
+    # Production requires higher default replicas
+    deployment:
+      replicas: 3
+
+    # Stricter security in production
+    container:
+      securityContext:
+        readOnlyRootFilesystem: true  # Enforce read-only root filesystem
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+
+      # Production image pull policy
+      imagePullPolicy: Always
+
+      # Higher resource requests for production
+      resources:
+        requests:
+          cpu: 200m
+          memory: 256Mi
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+
+    # Enable PodDisruptionBudget in production
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+
+    # Enable autoscaling in production
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+
+    # Production gateway settings
+    gateway:
+      backendTrafficPolicy:
+        # Enable circuit breaker
+        circuitBreaker:
+          enabled: true
+          maxConnections: 2048
+          maxPendingRequests: 1024
+          maxRequests: 2048
+          maxRetries: 3
+
+        # Enable retry policy
+        retry:
+          enabled: true
+          numRetries: 3
+          retryOn:
+            - 5xx
+            - reset
+            - connect-failure
+            - refused-stream
+
+        # Production timeouts
+        timeout:
+          tcp:
+            connectTimeout: 10s
+          http:
+            requestTimeout: 60s

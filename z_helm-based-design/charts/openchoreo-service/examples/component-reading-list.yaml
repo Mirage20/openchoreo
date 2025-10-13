@@ -1,0 +1,181 @@
+# Complete example showing Component, Workload, Service, and how they map to the Helm chart
+# This demonstrates the current OpenChoreo architecture mapping to the Helm-based design
+
+---
+# Component: Developer-facing resource that defines the component metadata
+apiVersion: openchoreo.dev/v1alpha1
+kind: Component
+metadata:
+  name: reading-list-service
+  namespace: default
+spec:
+  owner:
+    projectName: demo-project
+  type: Service  # This will be replaced by componentClass reference in new design
+
+---
+# Workload: Defines the source code contract (containers, endpoints, connections)
+# This is the PRIMARY source of truth for the application definition
+apiVersion: openchoreo.dev/v1alpha1
+kind: Workload
+metadata:
+  name: reading-list-service
+  namespace: default
+spec:
+  owner:
+    componentName: reading-list-service
+    projectName: demo-project
+
+  # Container specifications
+  containers:
+    main:
+      image: ghcr.io/openchoreo/samples/reading-list-server:v1.2.3
+      env:
+        - key: LOG_LEVEL
+          value: info
+        - key: PORT
+          value: "8080"
+
+  # Endpoint definitions (used to generate Service and HTTPRoute)
+  endpoints:
+    reading-list-api:
+      type: REST
+      port: 8080
+      schema:
+        type: REST
+        content: |
+          openapi: 3.0.1
+          info:
+            title: Reading List API
+            version: "1.0"
+          paths:
+            /books:
+              get:
+                summary: List all books
+                responses:
+                  "200":
+                    description: successful operation
+
+  # Connections to other services
+  connections: {}
+
+---
+# Service: Runtime configuration for the service component
+# In the new design, this becomes ComponentBinding with references to ComponentClass
+apiVersion: openchoreo.dev/v1alpha1
+kind: Service
+metadata:
+  name: reading-list-service
+  namespace: default
+spec:
+  owner:
+    componentName: reading-list-service
+    projectName: demo-project
+
+  # References the workload above
+  workloadName: reading-list-service
+
+  # References the ComponentClass (currently ServiceClass)
+  className: default-service
+
+  # API exposure configuration
+  # This maps to .Values.openchoreo.apis in the Helm chart
+  apis:
+    reading-list-api:
+      type: REST
+      className: default  # APIClass name
+      rest:
+        backend:
+          port: 8080
+          basePath: /api/v1/reading-list
+        exposeLevels:
+          - Public
+
+---
+# ComponentBinding: (Auto-generated in new design)
+# This would be automatically created by the Component controller
+# and would contain the merged configuration for a specific environment
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentBinding
+metadata:
+  name: reading-list-service-development
+  namespace: default
+spec:
+  # References
+  component: reading-list-service
+  componentClass: default-service
+  environment: development
+
+  # Workload spec is COPIED from the Workload resource
+  # This becomes .Values.openchoreo.workload in Helm
+  workloadSpec:
+    containers:
+      main:
+        image: ghcr.io/openchoreo/samples/reading-list-server:v1.2.3
+        env:
+          - key: LOG_LEVEL
+            value: info
+          - key: PORT
+            value: "8080"
+    endpoints:
+      reading-list-api:
+        type: REST
+        port: 8080
+        schema:
+          type: REST
+          content: |
+            openapi: 3.0.1
+            ...
+    connections: {}
+
+  # Developer parameters (validated against ComponentClass.parameterSchema)
+  # These can override workload values or provide additional configuration
+  parameters:
+    deployment:
+      replicas: 2
+
+    container:
+      resources:
+        requests:
+          cpu: "150m"
+          memory: "256Mi"
+        limits:
+          cpu: "750m"
+          memory: "768Mi"
+
+      livenessProbe:
+        enabled: true
+        httpGet:
+          path: /healthz
+          port: http
+
+      readinessProbe:
+        enabled: true
+        httpGet:
+          path: /ready
+          port: http
+
+  # Release state
+  releaseState: Active
+
+---
+# What the ComponentBinding Controller injects into Helm values:
+#
+# openchoreo:
+#   component:
+#     name: reading-list-service
+#     project: demo-project
+#     organization: default
+#   environment:
+#     name: development
+#   namespace: dp-default-demo-project-development
+#   workload: <workloadSpec from above>
+#   apis: <apis from Service spec>
+#
+# Then merges with:
+# 1. Chart defaults (values.yaml)
+# 2. ComponentClass.values (PE universal governance)
+# 3. ComponentClassBinding.overrides (PE env-specific governance)
+# 4. ComponentBinding.parameters (developer configuration)
+#
+# Final result is passed to Helm to render Deployment, Service, HTTPRoute, etc.

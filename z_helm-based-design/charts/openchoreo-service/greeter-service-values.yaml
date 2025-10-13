@@ -1,0 +1,215 @@
+# Helm values for greeter-service sample
+# This matches the configuration from samples/from-image/go-greeter-service/greeter-service.yaml
+
+# OpenChoreo context (would be injected by ComponentBinding controller)
+openchoreo:
+  # Component identity
+  component:
+    name: greeter-service
+    project: default
+    organization: default
+
+  # Environment context
+  environment:
+    name: development
+
+  # Target namespace in data plane
+  # NOTE: Controller adds hash suffix to namespace
+  namespace: dp-default-default-development-f8e58905
+
+  # Workload specification (copied from Workload CRD)
+  workload:
+    # Container specifications
+    containers:
+      main:
+        # NOTE: Controller uses private image
+        image: ghcr.io/openchoreo/samples/private-greeter-service:latest
+        command:
+          - ./go-greeter
+        args:
+          - --port
+          - "9090"
+        env:
+          - key: LOG_LEVEL
+            value: info
+          # Note: The following env vars reference ConfigurationGroups
+          # In the Helm chart, these would need to be resolved by the controller
+          # or provided as additional env vars in the values
+          - key: GITHUB_REPOSITORY
+            value: "openchoreo/openchoreo"  # Placeholder for configurationGroupRef
+          - key: GITHUB_TOKEN
+            value: "ghp_placeholder_token"  # Placeholder for configurationGroupRef
+
+    # Endpoints (used to generate Service and HTTPRoutes)
+    endpoints:
+      greeter-api:
+        type: REST
+        port: 9090
+        schema:
+          type: REST
+          content: |
+            openapi: 3.0.0
+            info:
+              title: Sample API
+              version: 1.0.0
+            servers:
+              - url: /api/v1
+                description: Base API path
+            paths:
+              /reading-list:
+                get:
+                  summary: Get all books in the reading list
+                  responses:
+                    '200':
+                      description: Successful response
+                post:
+                  summary: Add a book to the reading list
+                  requestBody:
+                    content:
+                      application/json:
+                        schema:
+                          $ref: '#/components/schemas/Book'
+                  responses:
+                    '201':
+                      description: Book added successfully
+            components:
+              schemas:
+                Book:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                    author:
+                      type: string
+
+    # No connections in this example
+    connections: {}
+
+  # API configuration (from Service CRD's apis field)
+  apis:
+    greeter-api:
+      type: REST
+      className: default  # APIClass name
+      rest:
+        backend:
+          port: 9090
+          basePath: /greeter
+        exposeLevels:
+          - Organization
+          - Public
+
+# Deployment configuration (from ComponentClass.values or developer parameters)
+deployment:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+# Container configuration
+container:
+  # Image pull policy
+  imagePullPolicy: IfNotPresent
+
+  # Security context (enforced by ComponentClass)
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    readOnlyRootFilesystem: false
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
+  # Resource requests and limits (matching controller output)
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi  # Controller uses 64Mi
+    limits:
+      cpu: 400m  # Controller uses 400m
+      memory: 256Mi  # Controller uses 256Mi
+
+  # Health probes (optional, can be enabled)
+  livenessProbe:
+    enabled: false
+    httpGet:
+      path: /healthz
+      port: greeter-api
+
+  readinessProbe:
+    enabled: false
+    httpGet:
+      path: /ready
+      port: greeter-api
+
+# Pod configuration
+pod:
+  # Pod security context
+  securityContext:
+    fsGroup: 65534
+    runAsNonRoot: true
+    runAsUser: 65534
+
+  # Additional pod annotations
+  annotations: {}
+
+  # Additional pod labels
+  labels: {}
+
+# Service configuration
+service:
+  type: ClusterIP
+  annotations: {}
+  labels: {}
+
+# Gateway configuration
+gateway:
+  enabled: true
+
+  httpRoute:
+    # Use cluster's actual gateway names
+    gatewayNameInternal: gateway-internal
+    gatewayNamespaceInternal: openchoreo-data-plane
+    gatewayNamePublic: gateway-external
+    gatewayNamespacePublic: openchoreo-data-plane
+
+    # Enable org/component prefix in paths (matches controller)
+    addOrgComponentPrefix: true
+
+    timeout: 30s
+
+  # Security policy (enabled to match controller - empty spec)
+  securityPolicy:
+    enabled: true
+
+  # Backend traffic policy (enabled to match controller - empty spec)
+  backendTrafficPolicy:
+    rateLimit:
+      enabled: false
+    circuitBreaker:
+      enabled: false
+    retry:
+      enabled: false
+
+# Image pull secrets (enable to match controller output)
+# The controller uses private image: ghcr.io/openchoreo/samples/private-greeter-service:latest
+imagePullSecrets:
+  enabled: true  # Changed to true to match controller
+  secrets:
+    - name: dockerhub-creds
+      remoteRef:
+        key: secret/data/docker/hub
+        property: dockerconfigjson
+      secretStore:
+        name: vault-backend
+        kind: ClusterSecretStore
+
+# Pod disruption budget (disabled for development)
+podDisruptionBudget:
+  enabled: false
+
+# Autoscaling (disabled for development)
+autoscaling:
+  enabled: false

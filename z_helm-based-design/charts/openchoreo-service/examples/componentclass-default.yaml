@@ -1,0 +1,157 @@
+# ComponentClass: Default Service
+# This ComponentClass provides a basic service template with reasonable defaults
+# Platform engineers define this to control how services are deployed
+
+apiVersion: openchoreo.dev/v1alpha1
+kind: ComponentClass
+metadata:
+  name: default-service
+  namespace: default
+  annotations:
+    openchoreo.dev/display-name: "Default Service"
+    openchoreo.dev/description: "Standard stateless service with basic resource limits and security defaults"
+spec:
+  # Reference to the Helm chart that backs this ComponentClass
+  helmChart:
+    repository: oci://registry.example.com/openchoreo-charts
+    chart: openchoreo-service
+    version: "1.0.0"
+
+  # JSON Schema defining what parameters developers can configure
+  # This validates ComponentBinding.parameters
+  parameterSchema:
+    type: object
+    required: []  # Workload is primary source, parameters are optional overrides
+    properties:
+      # Allow developers to override replica count within bounds
+      deployment:
+        type: object
+        properties:
+          replicas:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 1
+            description: "Number of pod replicas"
+
+      # Allow developers to specify resource requests/limits within PE-defined bounds
+      container:
+        type: object
+        properties:
+          resources:
+            type: object
+            properties:
+              requests:
+                type: object
+                properties:
+                  cpu:
+                    type: string
+                    pattern: "^[0-9]+m$"
+                    default: "100m"
+                    description: "CPU request (minimum 50m, maximum 2000m)"
+                  memory:
+                    type: string
+                    pattern: "^[0-9]+[MG]i$"
+                    default: "128Mi"
+                    description: "Memory request (minimum 64Mi, maximum 4Gi)"
+              limits:
+                type: object
+                properties:
+                  cpu:
+                    type: string
+                    pattern: "^[0-9]+m$"
+                    default: "500m"
+                    description: "CPU limit (minimum 100m, maximum 4000m)"
+                  memory:
+                    type: string
+                    pattern: "^[0-9]+[MG]i$"
+                    default: "512Mi"
+                    description: "Memory limit (minimum 128Mi, maximum 8Gi)"
+
+          # Allow developers to configure probes
+          livenessProbe:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+                default: false
+              httpGet:
+                type: object
+                properties:
+                  path:
+                    type: string
+                    default: "/healthz"
+                  port:
+                    type: string
+                    default: "http"
+
+          readinessProbe:
+            type: object
+            properties:
+              enabled:
+                type: boolean
+                default: false
+              httpGet:
+                type: object
+                properties:
+                  path:
+                    type: string
+                    default: "/ready"
+                  port:
+                    type: string
+                    default: "http"
+
+  # Platform Engineer-defined values that apply universally across ALL environments
+  # These values override chart defaults and take precedence over developer parameters
+  values:
+    # Default replica count (can be overridden by developers within schema limits)
+    deployment:
+      replicas: 1
+      strategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxSurge: 1
+          maxUnavailable: 0
+
+    # Enforce security context for all services
+    # These CANNOT be overridden by developers
+    pod:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534  # nobody user
+        fsGroup: 65534
+
+    container:
+      # Enforce non-root container
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        readOnlyRootFilesystem: false  # Can be set to true in production via ComponentClassBinding
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+
+      # Default image pull policy
+      imagePullPolicy: IfNotPresent
+
+      # Default resource limits (developers can customize within bounds)
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+
+    # Service configuration
+    service:
+      type: ClusterIP
+
+    # Gateway configuration
+    gateway:
+      enabled: true
+      httpRoute:
+        gatewayName: openchoreo-gateway
+        gatewayNamespace: openchoreo-system
+        timeout: 30s

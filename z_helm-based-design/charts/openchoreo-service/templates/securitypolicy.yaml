@@ -1,0 +1,37 @@
+{{- if and .Values.gateway.enabled .Values.gateway.securityPolicy.enabled .Values.openchoreo.apis -}}
+{{- range $apiName, $apiSpec := .Values.openchoreo.apis -}}
+{{- if and $apiSpec.rest $apiSpec.rest.exposeLevels -}}
+{{- range $exposeLevel := $apiSpec.rest.exposeLevels }}
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: {{ include "openchoreo-service.fullname" $ }}-{{ $apiName }}-{{ $exposeLevel | lower }}
+  namespace: {{ include "openchoreo-service.namespace" $ }}
+  labels:
+    {{- include "openchoreo-service.labels" $ | nindent 4 }}
+    openchoreo.dev/api-name: {{ $apiName }}
+    openchoreo.dev/expose-level: {{ $exposeLevel }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "openchoreo-service.fullname" $ }}-{{ $apiName }}-{{ $exposeLevel | lower }}
+  {{- if $.Values.gateway.securityPolicy.oidc }}
+  oidc:
+    provider:
+      issuer: {{ $.Values.gateway.securityPolicy.oidc.provider.issuer }}
+      {{- with $.Values.gateway.securityPolicy.oidc.provider.audiences }}
+      audiences:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- end }}
+  {{- if $.Values.gateway.securityPolicy.jwt }}
+  jwt:
+    providers:
+      {{- toYaml $.Values.gateway.securityPolicy.jwt.providers | nindent 6 }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

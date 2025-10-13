@@ -1,0 +1,395 @@
+# Default values for openchoreo-service chart
+# This file documents all possible configuration options
+# Values are merged in this order (later overrides earlier):
+# 1. Chart defaults (this file)
+# 2. ComponentClass.values (PE universal governance)
+# 3. ComponentClassBinding.overrides (PE environment-specific governance)
+# 4. ComponentBinding.parameters (developer configuration)
+# Note: PE values ALWAYS override developer values for the same keys
+
+# ==============================================================================
+# OpenChoreo Context (Injected by ComponentBinding Controller)
+# ==============================================================================
+# This section is automatically injected by the OpenChoreo ComponentBinding controller
+# and should NOT be set by platform engineers or developers.
+openchoreo:
+  # Component identity
+  component:
+    name: ""           # Component name
+    project: ""        # Project name
+    organization: ""   # Organization name (namespace)
+
+  # Environment context
+  environment:
+    name: ""           # Environment name (e.g., development, production)
+
+  # Kubernetes namespace for deployment
+  namespace: ""        # Target namespace in data plane
+
+  # Workload specification (copied from Component's Workload reference)
+  # This is the primary source of truth for the application runtime definition
+  workload:
+    # Containers define the container specifications
+    # Key = container name, Value = container spec
+    containers: {}
+    #   main:
+    #     image: "my-app:v1.0.0"
+    #     command: []
+    #     args: []
+    #     env:
+    #       - key: LOG_LEVEL
+    #         value: info
+
+    # Endpoints define network endpoints for the workload
+    # Key = endpoint name, Value = endpoint spec
+    endpoints: {}
+    #   api:
+    #     type: REST
+    #     port: 8080
+    #     schema:
+    #       type: REST
+    #       content: |
+    #         openapi: 3.0.1
+    #         ...
+
+    # Connections define how this workload consumes other services
+    # Key = connection name, Value = connection spec
+    connections: {}
+    #   database-api:
+    #     type: api
+    #     params:
+    #       componentName: postgres-service
+    #       endpoint: db-api
+    #     inject:
+    #       env:
+    #         - name: DATABASE_URL
+    #           value: "{{ .url }}"
+
+  # API configuration (from Service CRD's apis field)
+  # Key = API name, Value = API configuration
+  apis: {}
+  #   reading-list-api:
+  #     className: default         # APIClass name
+  #     type: REST
+  #     rest:
+  #       backend:
+  #         port: 8080
+  #         basePath: /api/v1/reading-list
+  #       exposeLevels:
+  #         - Public
+
+# ==============================================================================
+# Deployment Configuration
+# ==============================================================================
+deployment:
+  # Number of replicas
+  # PE can set this in ComponentClass for defaults, ComponentClassBinding for env-specific
+  # Developers can override in ComponentBinding.parameters if PE allows via schema
+  replicas: 1
+
+  # Deployment strategy
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  # Pod restart policy
+  restartPolicy: Always
+
+  # Termination grace period
+  terminationGracePeriodSeconds: 30
+
+# ==============================================================================
+# Container Configuration
+# ==============================================================================
+# Note: Most container configuration comes from openchoreo.workload.containers
+# These settings allow PE governance overrides or developer customization
+container:
+  # Container name (defaults to first container in workload)
+  name: main
+
+  # Image pull policy
+  # PE should set this in ComponentClass or ComponentClassBinding
+  imagePullPolicy: IfNotPresent
+
+  # Security context for the container
+  # PE should enforce these in ComponentClass.values
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534        # nobody user
+    readOnlyRootFilesystem: false
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
+  # Resource requests and limits
+  # PE should set minimum/maximum in ComponentClass
+  # Developers can specify within bounds via parameters
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Liveness probe configuration
+  livenessProbe:
+    enabled: false
+    httpGet:
+      path: /healthz
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
+  # Readiness probe configuration
+  readinessProbe:
+    enabled: false
+    httpGet:
+      path: /ready
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+
+# ==============================================================================
+# Pod Configuration
+# ==============================================================================
+pod:
+  # Pod security context
+  # PE should enforce in ComponentClass.values
+  securityContext:
+    fsGroup: 65534
+    runAsNonRoot: true
+    runAsUser: 65534
+
+  # Pod annotations
+  annotations: {}
+
+  # Pod labels (additional labels beyond default OpenChoreo labels)
+  labels: {}
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity rules
+  affinity: {}
+
+  # Service account name
+  serviceAccountName: ""
+
+  # DNS policy
+  dnsPolicy: ClusterFirst
+
+# ==============================================================================
+# Service Configuration
+# ==============================================================================
+# The Kubernetes Service resource is auto-generated from openchoreo.workload.endpoints
+service:
+  # Service type (ClusterIP, NodePort, LoadBalancer)
+  # PE should control this in ComponentClass.values
+  type: ClusterIP
+
+  # Service annotations
+  annotations: {}
+
+  # Service labels (additional labels beyond default OpenChoreo labels)
+  labels: {}
+
+  # Session affinity
+  sessionAffinity: None
+
+# ==============================================================================
+# Image Pull Secrets Configuration
+# ==============================================================================
+# Configuration for image pull secrets using External Secrets Operator
+imagePullSecrets:
+  # Enable image pull secret creation via ExternalSecret
+  enabled: false
+
+  # List of secret references (from DataPlane.spec.imagePullSecretRefs)
+  # Each entry creates an ExternalSecret resource
+  secrets: []
+  #   - name: docker-registry-secret
+  #     remoteRef:
+  #       key: /path/to/secret/in/external-store
+  #     secretStore:
+  #       name: azure-secret-store
+  #       kind: SecretStore
+
+# ==============================================================================
+# API Gateway Configuration
+# ==============================================================================
+# Configuration for HTTPRoute, SecurityPolicy, and BackendTrafficPolicy resources
+# These are generated based on openchoreo.apis configuration
+gateway:
+  # Enable gateway resource generation
+  enabled: true
+
+  # HTTPRoute configuration
+  httpRoute:
+    # Gateway names to attach routes to (different per expose level)
+    # For Organization and Project level
+    gatewayNameInternal: gateway-internal
+    gatewayNamespaceInternal: openchoreo-data-plane
+    # For Public level
+    gatewayNamePublic: gateway-external
+    gatewayNamespacePublic: openchoreo-data-plane
+
+    # Legacy single gateway (kept for backward compatibility)
+    gatewayName: openchoreo-gateway
+    gatewayNamespace: openchoreo-system
+
+    # Add organization/component prefix to paths (like controller does)
+    # This creates paths like: /org/component/basePath
+    # Then uses URLRewrite to strip prefix before forwarding to backend
+    addOrgComponentPrefix: true
+
+    # Hostname patterns for different expose levels
+    hostnames:
+      # Project level: {project}.{org}.internal (not used in greeter-service)
+      project: "{{ .Values.openchoreo.component.project }}.{{ .Values.openchoreo.component.organization }}.internal"
+      # Organization level: {env}.choreoapis.internal (matches controller)
+      organization: "{{ .Values.openchoreo.environment.name }}.choreoapis.internal"
+      # Public level: {env}.choreoapis.localhost (matches controller)
+      public: "{{ .Values.openchoreo.environment.name }}.choreoapis.localhost"
+
+    # Default timeout for routes
+    timeout: 30s
+
+  # SecurityPolicy configuration (OIDC/JWT authentication)
+  securityPolicy:
+    enabled: false
+    # OIDC provider configuration
+    oidc:
+      provider:
+        issuer: ""
+        audiences: []
+    # JWT validation
+    jwt:
+      providers: []
+
+  # BackendTrafficPolicy configuration
+  backendTrafficPolicy:
+    # Rate limiting configuration
+    rateLimit:
+      enabled: false
+      type: Global
+      global:
+        rules:
+          - limit:
+              requests: 100
+              unit: Minute
+
+    # Circuit breaker configuration
+    circuitBreaker:
+      enabled: false
+      maxConnections: 1024
+      maxPendingRequests: 1024
+      maxRequests: 1024
+      maxRetries: 3
+
+    # Retry policy
+    retry:
+      enabled: false
+      numRetries: 3
+      retryOn:
+        - 5xx
+        - reset
+        - connect-failure
+
+    # Timeout configuration
+    timeout:
+      tcp:
+        connectTimeout: 10s
+      http:
+        requestTimeout: 30s
+
+    # Load balancer configuration
+    loadBalancer:
+      type: RoundRobin
+
+    # Health check configuration
+    healthCheck:
+      enabled: false
+      active:
+        http:
+          path: /healthz
+
+# ==============================================================================
+# Pod Disruption Budget
+# ==============================================================================
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# ==============================================================================
+# Horizontal Pod Autoscaler
+# ==============================================================================
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# ==============================================================================
+# Additional Environment Variables
+# ==============================================================================
+# These are merged with environment variables from openchoreo.workload.containers
+# and resolved connection environment variables
+env: []
+#   - name: CUSTOM_VAR
+#     value: "custom-value"
+
+# ==============================================================================
+# ConfigMaps and Secrets
+# ==============================================================================
+# Additional ConfigMaps to create
+configMaps: []
+#   - name: app-config
+#     data:
+#       config.yaml: |
+#         key: value
+
+# Additional Secrets to create
+secrets: []
+#   - name: app-secrets
+#     data:
+#       secret-key: base64-encoded-value
+
+# ==============================================================================
+# Volume Mounts and Volumes
+# ==============================================================================
+# Additional volume mounts for the main container
+volumeMounts: []
+#   - name: config-volume
+#     mountPath: /etc/config
+
+# Additional volumes
+volumes: []
+#   - name: config-volume
+#     configMap:
+#       name: app-config
+
+# ==============================================================================
+# Network Policies
+# ==============================================================================
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []

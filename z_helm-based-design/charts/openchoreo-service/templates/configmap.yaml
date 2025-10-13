@@ -1,0 +1,14 @@
+{{- if .Values.configMaps -}}
+{{- range .Values.configMaps }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "openchoreo-service.namespace" $ }}
+  labels:
+    {{- include "openchoreo-service.labels" $ | nindent 4 }}
+data:
+  {{- toYaml .data | nindent 2 }}
+{{- end }}
+{{- end }}

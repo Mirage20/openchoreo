@@ -1,0 +1,17 @@
+apiVersion: v2
+name: openchoreo-service
+description: OpenChoreo base Helm chart for Service component type
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+maintainers:
+  - name: OpenChoreo Team
+    url: https://openchoreo.dev
+keywords:
+  - openchoreo
+  - service
+  - microservice
+  - kubernetes
+home: https://openchoreo.dev
+sources:
+  - https://github.com/openchoreo/openchoreo

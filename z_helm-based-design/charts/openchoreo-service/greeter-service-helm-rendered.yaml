@@ -1,0 +1,361 @@
+---
+# Source: openchoreo-service/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: greeter-service
+  namespace: dp-default-default-development-f8e58905
+  labels:
+    helm.sh/chart: openchoreo-service-1.0.0
+    app.kubernetes.io/name: openchoreo-service
+    app.kubernetes.io/instance: greeter-service
+    openchoreo.dev/component: greeter-service
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    openchoreo.dev/organization: default
+    openchoreo.dev/project: default
+    openchoreo.dev/component: greeter-service
+    openchoreo.dev/environment: development
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  selector:
+    app.kubernetes.io/name: openchoreo-service
+    app.kubernetes.io/instance: greeter-service
+    openchoreo.dev/component: greeter-service
+  ports:
+    
+    - name: greeter-api
+      port: 9090
+      targetPort: greeter-api
+      protocol: TCP
+---
+# Source: openchoreo-service/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: greeter-service
+  namespace: dp-default-default-development-f8e58905
+  labels:
+    helm.sh/chart: openchoreo-service-1.0.0
+    app.kubernetes.io/name: openchoreo-service
+    app.kubernetes.io/instance: greeter-service
+    openchoreo.dev/component: greeter-service
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    openchoreo.dev/organization: default
+    openchoreo.dev/project: default
+    openchoreo.dev/component: greeter-service
+    openchoreo.dev/environment: development
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openchoreo-service
+      app.kubernetes.io/instance: greeter-service
+      openchoreo.dev/component: greeter-service
+  template:
+    metadata:
+      annotations:
+        # Force pod restart when ConfigMap or Secret changes
+        checksum/config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+      labels:
+        app.kubernetes.io/name: openchoreo-service
+        app.kubernetes.io/instance: greeter-service
+        openchoreo.dev/component: greeter-service
+    spec:
+      imagePullSecrets:
+        
+        - name: dockerhub-creds
+      securityContext:
+        fsGroup: 65534
+        runAsNonRoot: true
+        runAsUser: 65534
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      containers:
+        - name: main
+          image: "ghcr.io/openchoreo/samples/private-greeter-service:latest"
+          imagePullPolicy: IfNotPresent
+          command:
+            - ./go-greeter
+          args:
+            - --port
+            - "9090"
+          env:
+            
+            - name: LOG_LEVEL
+              value: "info"
+            - name: GITHUB_REPOSITORY
+              value: "openchoreo/openchoreo"
+            - name: GITHUB_TOKEN
+              value: "ghp_placeholder_token"
+          ports:
+            
+            - name: greeter-api
+              containerPort: 9090
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 400m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 65534
+---
+# Source: openchoreo-service/templates/backendtrafficpolicy.yaml
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: greeter-service-greeter-api-organization
+  namespace: dp-default-default-development-f8e58905
+  labels:
+    helm.sh/chart: openchoreo-service-1.0.0
+    app.kubernetes.io/name: openchoreo-service
+    app.kubernetes.io/instance: greeter-service
+    openchoreo.dev/component: greeter-service
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    openchoreo.dev/organization: default
+    openchoreo.dev/project: default
+    openchoreo.dev/component: greeter-service
+    openchoreo.dev/environment: development
+    openchoreo.dev/api-name: greeter-api
+    openchoreo.dev/expose-level: Organization
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: greeter-service-greeter-api-organization
+  timeout:
+    http:
+      requestTimeout: 30s
+    tcp:
+      connectTimeout: 10s
+  loadBalancer:
+    type: RoundRobin
+---
+# Source: openchoreo-service/templates/backendtrafficpolicy.yaml
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: greeter-service-greeter-api-public
+  namespace: dp-default-default-development-f8e58905
+  labels:
+    helm.sh/chart: openchoreo-service-1.0.0
+    app.kubernetes.io/name: openchoreo-service
+    app.kubernetes.io/instance: greeter-service
+    openchoreo.dev/component: greeter-service
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    openchoreo.dev/organization: default
+    openchoreo.dev/project: default
+    openchoreo.dev/component: greeter-service
+    openchoreo.dev/environment: development
+    openchoreo.dev/api-name: greeter-api
+    openchoreo.dev/expose-level: Public
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: greeter-service-greeter-api-public
+  timeout:
+    http:
+      requestTimeout: 30s
+    tcp:
+      connectTimeout: 10s
+  loadBalancer:
+    type: RoundRobin
+---
+# Source: openchoreo-service/templates/externalsecret.yaml
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: dockerhub-creds
+  namespace: dp-default-default-development-f8e58905
+  labels:
+    helm.sh/chart: openchoreo-service-1.0.0
+    app.kubernetes.io/name: openchoreo-service
+    app.kubernetes.io/instance: greeter-service
+    openchoreo.dev/component: greeter-service
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    openchoreo.dev/organization: default
+    openchoreo.dev/project: default
+    openchoreo.dev/component: greeter-service
+    openchoreo.dev/environment: development
+spec:
+  secretStoreRef:
+    name: vault-backend
+    kind: ClusterSecretStore
+  target:
+    name: dockerhub-creds
+    creationPolicy: Owner
+    template:
+      type: kubernetes.io/dockerconfigjson
+      data:
+        .dockerconfigjson: "{{ .dockerconfigjson }}"
+  data:
+    - secretKey: dockerconfigjson
+      remoteRef:
+        key: secret/data/docker/hub
+---
+# Source: openchoreo-service/templates/httproute.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: greeter-service-greeter-api-organization
+  namespace: dp-default-default-development-f8e58905
+  labels:
+    helm.sh/chart: openchoreo-service-1.0.0
+    app.kubernetes.io/name: openchoreo-service
+    app.kubernetes.io/instance: greeter-service
+    openchoreo.dev/component: greeter-service
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    openchoreo.dev/organization: default
+    openchoreo.dev/project: default
+    openchoreo.dev/component: greeter-service
+    openchoreo.dev/environment: development
+    openchoreo.dev/api-name: greeter-api
+    openchoreo.dev/expose-level: Organization
+spec:
+  parentRefs:
+    - name: gateway-internal
+      namespace: openchoreo-data-plane
+  hostnames:
+    - development.choreoapis.internal
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /default/greeter-service/greeter
+      backendRefs:
+        - name: greeter-service
+          port: 9090
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /greeter
+      timeouts:
+        request: 30s
+---
+# Source: openchoreo-service/templates/httproute.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: greeter-service-greeter-api-public
+  namespace: dp-default-default-development-f8e58905
+  labels:
+    helm.sh/chart: openchoreo-service-1.0.0
+    app.kubernetes.io/name: openchoreo-service
+    app.kubernetes.io/instance: greeter-service
+    openchoreo.dev/component: greeter-service
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    openchoreo.dev/organization: default
+    openchoreo.dev/project: default
+    openchoreo.dev/component: greeter-service
+    openchoreo.dev/environment: development
+    openchoreo.dev/api-name: greeter-api
+    openchoreo.dev/expose-level: Public
+spec:
+  parentRefs:
+    - name: gateway-external
+      namespace: openchoreo-data-plane
+  hostnames:
+    - development.choreoapis.localhost
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /default/greeter-service/greeter
+      backendRefs:
+        - name: greeter-service
+          port: 9090
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /greeter
+      timeouts:
+        request: 30s
+---
+# Source: openchoreo-service/templates/securitypolicy.yaml
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: greeter-service-greeter-api-organization
+  namespace: dp-default-default-development-f8e58905
+  labels:
+    helm.sh/chart: openchoreo-service-1.0.0
+    app.kubernetes.io/name: openchoreo-service
+    app.kubernetes.io/instance: greeter-service
+    openchoreo.dev/component: greeter-service
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    openchoreo.dev/organization: default
+    openchoreo.dev/project: default
+    openchoreo.dev/component: greeter-service
+    openchoreo.dev/environment: development
+    openchoreo.dev/api-name: greeter-api
+    openchoreo.dev/expose-level: Organization
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: greeter-service-greeter-api-organization
+  oidc:
+    provider:
+      issuer: 
+  jwt:
+    providers:
+      []
+---
+# Source: openchoreo-service/templates/securitypolicy.yaml
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: greeter-service-greeter-api-public
+  namespace: dp-default-default-development-f8e58905
+  labels:
+    helm.sh/chart: openchoreo-service-1.0.0
+    app.kubernetes.io/name: openchoreo-service
+    app.kubernetes.io/instance: greeter-service
+    openchoreo.dev/component: greeter-service
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    openchoreo.dev/organization: default
+    openchoreo.dev/project: default
+    openchoreo.dev/component: greeter-service
+    openchoreo.dev/environment: development
+    openchoreo.dev/api-name: greeter-api
+    openchoreo.dev/expose-level: Public
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: greeter-service-greeter-api-public
+  oidc:
+    provider:
+      issuer: 
+  jwt:
+    providers:
+      []

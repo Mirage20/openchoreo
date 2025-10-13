@@ -1,0 +1,258 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  creationTimestamp: null
+  labels:
+    component-name: greeter-service
+    environment-name: development
+    organization-name: default
+    project-name: default
+  name: greeter-service-dockerhub-creds-3b54102b
+  namespace: dp-default-default-development-f8e58905
+spec:
+  data:
+    - remoteRef:
+        key: secret/data/docker/hub
+        property: dockerconfigjson
+      secretKey: .dockerconfigjson
+  refreshInterval: 1h0m0s
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: vault-backend
+  target:
+    creationPolicy: Owner
+    deletionPolicy: Delete
+    name: greeter-service-dockerhub-creds-3b54102b
+    template:
+      metadata:
+        labels:
+          app: openchoreo
+      type: kubernetes.io/dockerconfigjson
+status:
+  binding: {}
+  refreshTime: null
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    component-name: greeter-service
+    environment-name: development
+    organization-name: default
+    project-name: default
+  name: greeter-service-483f44a4
+  namespace: dp-default-default-development-f8e58905
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component-name: greeter-service
+      environment-name: development
+      organization-name: default
+      project-name: default
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        component-name: greeter-service
+        environment-name: development
+        organization-name: default
+        project-name: default
+    spec:
+      containers:
+        - args:
+            - --port
+            - "9090"
+          command:
+            - ./go-greeter
+          env:
+            - name: LOG_LEVEL
+              value: info
+          image: ghcr.io/openchoreo/samples/private-greeter-service:latest
+          name: main
+          ports:
+            - containerPort: 9090
+              name: ep-9090-tcp
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 400m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+      imagePullSecrets:
+        - name: greeter-service-dockerhub-creds-3b54102b
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    component-name: greeter-service
+    environment-name: development
+    organization-name: default
+    project-name: default
+  name: greeter-service-483f44a4
+  namespace: dp-default-default-development-f8e58905
+spec:
+  ports:
+    - name: ep-9090-tcp
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+  selector:
+    component-name: greeter-service
+    environment-name: development
+    organization-name: default
+    project-name: default
+  type: ClusterIP
+status:
+  loadBalancer: {}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  labels:
+    component-name: greeter-service
+    environment-name: development
+    organization-name: default
+    project-name: default
+  name: greeter-servi-greeter-api-organization-httproute-54724069
+  namespace: dp-default-default-development-f8e58905
+spec:
+  hostnames:
+    - development.choreoapis.internal
+  parentRefs:
+    - name: gateway-internal
+      namespace: openchoreo-data-plane
+  rules:
+    - backendRefs:
+        - name: greeter-service-483f44a4
+          port: 9090
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              replacePrefixMatch: /greeter
+              type: ReplacePrefixMatch
+      matches:
+        - path:
+            type: PathPrefix
+            value: /default/greeter-service/greeter
+status:
+  parents: null
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  labels:
+    component-name: greeter-service
+    environment-name: development
+    organization-name: default
+    project-name: default
+  name: greeter-servi-greeter-api-public-httproute-7c8cbc62
+  namespace: dp-default-default-development-f8e58905
+spec:
+  hostnames:
+    - development.choreoapis.localhost
+  parentRefs:
+    - name: gateway-external
+      namespace: openchoreo-data-plane
+  rules:
+    - backendRefs:
+        - name: greeter-service-483f44a4
+          port: 9090
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              replacePrefixMatch: /greeter
+              type: ReplacePrefixMatch
+      matches:
+        - path:
+            type: PathPrefix
+            value: /default/greeter-service/greeter
+status:
+  parents: null
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  creationTimestamp: null
+  labels:
+    component-name: greeter-service
+    environment-name: development
+    organization-name: default
+    project-name: default
+  name: greeter-service-greeter-api-organization-c8bc36d6
+  namespace: dp-default-default-development-f8e58905
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: greeter-servi-greeter-api-organization-httproute-54724069
+status:
+  ancestors: null
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  creationTimestamp: null
+  labels:
+    component-name: greeter-service
+    environment-name: development
+    organization-name: default
+    project-name: default
+  name: greeter-service-greeter-api-public-17e9931f
+  namespace: dp-default-default-development-f8e58905
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: greeter-servi-greeter-api-public-httproute-7c8cbc62
+status:
+  ancestors: null
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  creationTimestamp: null
+  labels:
+    component-name: greeter-service
+    environment-name: development
+    organization-name: default
+    project-name: default
+  name: greeter-servi-greeter-api-organization-btp-523618b9
+  namespace: dp-default-default-development-f8e58905
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: greeter-servi-greeter-api-organization-httproute-54724069
+status:
+  ancestors: null
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  creationTimestamp: null
+  labels:
+    component-name: greeter-service
+    environment-name: development
+    organization-name: default
+    project-name: default
+  name: greeter-servi-greeter-api-public-btp-a816b04c
+  namespace: dp-default-default-development-f8e58905
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: greeter-servi-greeter-api-public-httproute-7c8cbc62
+status:
+  ancestors: null

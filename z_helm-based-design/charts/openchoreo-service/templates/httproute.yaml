@@ -1,0 +1,59 @@
+{{- if and .Values.gateway.enabled .Values.openchoreo.apis -}}
+{{- range $apiName, $apiSpec := .Values.openchoreo.apis -}}
+{{- if and $apiSpec.rest $apiSpec.rest.exposeLevels -}}
+{{- range $exposeLevel := $apiSpec.rest.exposeLevels }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "openchoreo-service.fullname" $ }}-{{ $apiName }}-{{ $exposeLevel | lower }}
+  namespace: {{ include "openchoreo-service.namespace" $ }}
+  labels:
+    {{- include "openchoreo-service.labels" $ | nindent 4 }}
+    openchoreo.dev/api-name: {{ $apiName }}
+    openchoreo.dev/expose-level: {{ $exposeLevel }}
+spec:
+  parentRefs:
+    {{- if eq $exposeLevel "Public" }}
+    - name: {{ $.Values.gateway.httpRoute.gatewayNamePublic }}
+      namespace: {{ $.Values.gateway.httpRoute.gatewayNamespacePublic }}
+    {{- else }}
+    - name: {{ $.Values.gateway.httpRoute.gatewayNameInternal }}
+      namespace: {{ $.Values.gateway.httpRoute.gatewayNamespaceInternal }}
+    {{- end }}
+  hostnames:
+    {{- if eq $exposeLevel "Project" }}
+    - {{ $.Values.openchoreo.environment.name }}.choreoapis.internal
+    {{- else if eq $exposeLevel "Organization" }}
+    - {{ $.Values.openchoreo.environment.name }}.choreoapis.internal
+    {{- else if eq $exposeLevel "Public" }}
+    - {{ $.Values.openchoreo.environment.name }}.choreoapis.localhost
+    {{- end }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            {{- if $.Values.gateway.httpRoute.addOrgComponentPrefix }}
+            value: /{{ $.Values.openchoreo.component.organization }}/{{ $.Values.openchoreo.component.name }}{{ $apiSpec.rest.backend.basePath | default "/" }}
+            {{- else }}
+            value: {{ $apiSpec.rest.backend.basePath | default "/" }}
+            {{- end }}
+      backendRefs:
+        - name: {{ include "openchoreo-service.fullname" $ }}
+          port: {{ $apiSpec.rest.backend.port }}
+      {{- if $.Values.gateway.httpRoute.addOrgComponentPrefix }}
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: {{ $apiSpec.rest.backend.basePath | default "/" }}
+      {{- end }}
+      {{- if $.Values.gateway.httpRoute.timeout }}
+      timeouts:
+        request: {{ $.Values.gateway.httpRoute.timeout }}
+      {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
